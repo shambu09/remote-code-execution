@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, render_template, redirect
-from app.utils import Code, PatchStd
+from utils import Code, PatchStd
 
 app = Flask(__name__)
 
@@ -12,35 +12,26 @@ def get_output(src: str, name: str) -> str:
     :return: Output of the code snippet.
     :rtype: str
     """
-    out = ""
     with PatchStd() as std:
         module = Code(name, src)
-        module.run.r_lambda(*module.run.r_args, **module.run.r_kwargs)
-        out = std.out.getvalue()
+        module.lib.__run()
 
-    return out
+    return std.value
 
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    src = request.args.get('src')
-    out = request.args.get('out')
+    if request.method == 'POST':
+        print(request.form)
+        src = request.form['src']
+        name = "test_module"
 
-    return render_template('index.html', source=src, output=out)
+        output = get_output(src, name)
+        if output == "": output = "No output"
+        return render_template('index.html', source=src, output=output)
 
-
-@app.route('/run', methods=['POST'])
-def run():
-    out = ""
-    src = request.json['code']
-    name = request.json['name']
-
-    with PatchStd() as std:
-        code = Code(name, request.json['code'])
-        code.run.r_lambda(*code.run.r_args, **code.run.r_kwargs)
-        out = std.out.getvalue()
-
-    return jsonify({"output": out})
+    else:
+        return render_template('index.html', source="", output="No Output")
 
 
 if __name__ == '__main__':

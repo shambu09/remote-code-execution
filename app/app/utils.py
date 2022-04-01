@@ -1,22 +1,22 @@
-import sys
-import io
 import importlib
-from types import ModuleType
-from typing import List, Optional, Any
+import io
+import sys
 from dataclasses import dataclass, field
+from types import ModuleType
+from typing import Any, List, Optional
 
 
-def __save_module_to_file(code: str, module_name: str) -> None:
+def __save_module_to_file(src: str, module_name: str) -> None:
     """
     Save the code to a file.
-    :param str code: Code to be saved.
+    :param str src: Code to be saved.
     :param str module_name: Name of the module.
     :return: None
     :rtype: NoneType
     """
 
     with open(module_name + ".py", "w") as f:
-        f.write(code)
+        f.write(src)
 
 
 def import_file(mod_name: str) -> ModuleType:
@@ -31,18 +31,17 @@ def import_file(mod_name: str) -> ModuleType:
     return module
 
 
-def import_dmod(name: str, code: str) -> ModuleType:
+def import_dmod(name: str, src: str) -> ModuleType:
     """
     Import dynamically generated code as module.
     :param str name: Name of the module.
-    :param str code: Code to be imported as module.
+    :param str src: Code to be imported as module.
     :return: Module.
     :rtype: ModuleType
     """
-
     spec = importlib.util.spec_from_loader(name, loader=None)
     module = importlib.util.module_from_spec(spec)
-    exec(code, module.__dict__)
+    exec(src, module.__dict__)
 
     return module
 
@@ -82,9 +81,7 @@ class PatchStd:
     """
     def __init__(self) -> None:
         self._out = sys.stdout
-        self._err = sys.stderr
         self.out = io.StringIO()
-        self.err = io.StringIO()
         self.value = ""
 
     def _print(self, *args) -> None:
@@ -92,14 +89,12 @@ class PatchStd:
 
     def __enter__(self) -> "PatchStd":
         sys.stdout = self.out
-        sys.stderr = self.err
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         sys.stdout = self._out
-        sys.stderr = self._err
+        self.value = self.out.getvalue()
         del self.out
-        del self.err
 
 
 def validate_properties(module: ModuleType, properties: List[str]) -> None:
@@ -113,25 +108,30 @@ def validate_properties(module: ModuleType, properties: List[str]) -> None:
             raise PropertyMissingException(f"Property {property} is missing.")
 
 
+def functionalise_src(src: str) -> str:
+    """
+    Functionalise the source code.
+    :param str src: Source code.
+    :return: Functionalised source code.
+    :rtype: str
+    """
+    src = src.replace("\n", "\n\t")
+    return f"def __run():\n\t" + src
+
+
 @dataclass(frozen=True)
 class Code:
     """
     //:param str uid: Unique identifier.
     :param str name: Name of the module.
-    :param str code: Code to be imported as module.
+    :param str src: Code to be imported as module.
     :param ModuleType module: Module oobject of the code.
-
-    @param code should have following properties:
-        - r_lambda : function to run.
-        - r_args : arguments to pass to the function.
-        - r_kwargs : keyword arguments to pass to the function.
-        - r_schedule : schedule to run the function.
     """
 
     #//uid: str = field(default="")
     name: str = field(default="")
-    code: str = field(default="", repr=False)
-    run: Optional[ModuleType] = field(default=None, repr=False)
+    src: str = field(default="", repr=False)
+    lib: Optional[ModuleType] = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         """
@@ -139,21 +139,23 @@ class Code:
         :return: None
         :rtype: NoneType
         """
-        if self.code != "":
-            object.__setattr__(self, "run", import_dmod(self.name, self.code))
+        if self.src != "":
+            object.__setattr__(
+                self, "lib", import_dmod(self.name,
+                                         functionalise_src(self.src)))
         else:
             raise CodeMissingException(f"Source code is missing.")
 
-        validate_properties(self.run,
-                            ["r_lambda", "r_args", "r_kwargs", "r_schedule"])
+        validate_properties(self.lib, ["__run"])
 
 
 if __name__ == "__main__":
-    code = """
+    src = """
 def r_lambda(*args, **kwargs):
     print("Hello")
+r_lambda()
 """
     module_name = "test_module"
 
-    module = Code(module_name, code)
-    module.run.r_lambda()
+    module = Code(module_name, src)
+    module.lib.__run()
