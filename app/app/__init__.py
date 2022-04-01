@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, redirect
+from flask import Flask, request, render_template
 from utils import Code, PatchStd
 
 app = Flask(__name__)
@@ -20,7 +20,7 @@ def get_output(src: str, name: str) -> str:
 
 
 @app.route('/', methods=['GET', 'POST'])
-def index():
+def index() -> None:
     if request.method == 'POST':
         print(request.form)
         src = request.form['src']
