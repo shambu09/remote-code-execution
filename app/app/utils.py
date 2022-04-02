@@ -55,7 +55,7 @@ class PropertyMissingException(Exception):
 
 class CodeMissingException(Exception):
     """
-    Exception for missing properities.
+    Exception for missing source code.
     """
     pass
 
@@ -77,7 +77,7 @@ class ProxyStream:
 
 class PatchStd:
     """
-    Context manager for monkey-patching stdout and stderr.
+    Context manager for monkey-patching stdout.
     """
     def __init__(self) -> None:
         self._out = sys.stdout
