@@ -1,3 +1,8 @@
+"""
+Code object and other helper methods for remote code execution.
+"""
+
+
 import importlib
 import io
 import sys
@@ -50,6 +55,7 @@ class PropertyMissingException(Exception):
     """
     Exception for missing properities.
     """
+
     pass
 
 
@@ -57,13 +63,15 @@ class CodeMissingException(Exception):
     """
     Exception for missing source code.
     """
+
     pass
 
 
 class ProxyStream:
     """
-    Proxy stream object for temporary storage. 
+    Proxy stream object for temporary storage.
     """
+
     value: str = ""
 
     @classmethod
@@ -79,6 +87,7 @@ class PatchStd:
     """
     Context manager for monkey-patching stdout.
     """
+
     def __init__(self) -> None:
         self._out = sys.stdout
         self.out = io.StringIO()
@@ -128,7 +137,7 @@ class Code:
     :param ModuleType module: Module oobject of the code.
     """
 
-    #//uid: str = field(default="")
+    # //uid: str = field(default="")
     name: str = field(default="")
     src: str = field(default="", repr=False)
     lib: Optional[ModuleType] = field(default=None, repr=False)
@@ -141,12 +150,17 @@ class Code:
         """
         if self.src != "":
             object.__setattr__(
-                self, "lib", import_dmod(self.name,
-                                         functionalise_src(self.src)))
+                self, "lib", import_dmod(self.name, functionalise_src(self.src))
+            )
         else:
             raise CodeMissingException(f"Source code is missing.")
 
         validate_properties(self.lib, ["__run"])
+
+    def run_with_patch(self) -> str:
+        with PatchStd() as std:
+            self.lib.__run()
+        return std.value
 
 
 if __name__ == "__main__":
