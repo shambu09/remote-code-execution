@@ -1,7 +1,7 @@
 """
 Code object and other helper methods for remote code execution.
+https://github.com/shambu09/remote-code-execution
 """
-
 
 import importlib
 import io
@@ -45,8 +45,16 @@ def import_dmod(name: str, src: str) -> ModuleType:
     :rtype: ModuleType
     """
     spec = importlib.util.spec_from_loader(name, loader=None)
-    module = importlib.util.module_from_spec(spec)
-    exec(src, module.__dict__)
+    module = None
+
+    try:
+        module = importlib.util.module_from_spec(spec)
+        exec(src, module.__dict__)
+
+    except Exception as E:
+        module = importlib.util.module_from_spec(spec)
+        _src = functionalise_src(f'print("""{repr(E)}""")')
+        exec(_src, module.__dict__)
 
     return module
 
@@ -87,7 +95,6 @@ class PatchStd:
     """
     Context manager for monkey-patching stdout.
     """
-
     def __init__(self) -> None:
         self._out = sys.stdout
         self.out = io.StringIO()
@@ -125,7 +132,7 @@ def functionalise_src(src: str) -> str:
     :rtype: str
     """
     src = src.replace("\n", "\n\t")
-    return f"def __run():\n\t" + src
+    return f"def i__run__():\n\t" + src
 
 
 @dataclass(frozen=True)
@@ -150,17 +157,21 @@ class Code:
         """
         if self.src != "":
             object.__setattr__(
-                self, "lib", import_dmod(self.name, functionalise_src(self.src))
-            )
+                self, "lib", import_dmod(self.name,
+                                         functionalise_src(self.src)))
         else:
             raise CodeMissingException(f"Source code is missing.")
 
-        validate_properties(self.lib, ["__run"])
+        validate_properties(self.lib, ["i__run__"])
 
-    def run_with_patch(self) -> str:
-        with PatchStd() as std:
-            self.lib.__run()
-        return std.value
+    def run_with_std_patch(self) -> str:
+        try:
+            with PatchStd() as std:
+                self.lib.i__run__()
+            return std.value
+
+        except Exception as E:
+            return repr(E)
 
 
 if __name__ == "__main__":
@@ -172,4 +183,4 @@ r_lambda()
     module_name = "test_module"
 
     module = Code(module_name, src)
-    module.lib.__run()
+    print(module.run_with_std_patch())
