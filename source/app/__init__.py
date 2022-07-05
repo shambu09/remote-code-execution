@@ -14,7 +14,7 @@ def get_output(src: str, name: str) -> str:
     """
     with PatchStd() as std:
         module = Code(name, src)
-        module.lib.__run()
+        module.lib.i__run__()
 
     return std.value
 

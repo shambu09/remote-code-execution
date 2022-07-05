@@ -20,5 +20,5 @@ from app.utils import Code, PatchStd
 if __name__ == '__main__':
     with PatchStd() as std:
         module = Code("test_module", src)
-        module.lib.__run()
+        module.lib.i__run__()
     print(std.value)
